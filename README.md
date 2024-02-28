@@ -2,7 +2,7 @@
 地理情報をcanvas APIで描画するjavascriptライブラリ
 
 # 使用例
-[訪問市区町村マップ](https://citypaint.bb.xrea.jp/)
+[訪問市区町村マップ](https://map.bb.xrea.jp/)
 
 # 使用方法
 MultiPolygon形式のデータを用意して、Canvasに描画する
