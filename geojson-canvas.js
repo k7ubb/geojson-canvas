@@ -70,6 +70,12 @@ window.MapCanvas = function(div){
 	let calc_x = x => (x - position_x) / scale;
 	let calc_y = y => -(y - position_y) / scale;
 	
+	this.drawGeometry = function(geometry, lineWidth, lineColor, fillColor) {
+		if (geometry?.type === "Polygon") {
+			this.drawPolygon(geometry.coordinates, lineWidth, lineColor, fillColor);
+		}
+	};
+	
 	this.drawPolygon = function(polygons, lineWidth, lineColor, fillColor){
 		context.lineWidth = lineWidth * devicePixelRatio;
 		for(let polygon of polygons){
