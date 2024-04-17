@@ -1,123 +1,155 @@
-window.MapCanvas = function(div){
-	let wrapdiv = div;
-	while(wrapdiv.firstChild){ wrapdiv.removeChild(wrapdiv.firstChild); }
-	wrapdiv.style.position = "relative";
+class geojsonCanvas {
 	
-	let canvas = document.createElement("canvas");
-	let context = canvas.getContext("2d");
-	div.appendChild(canvas);
+	#div;
+	#canvas;
+	#context;
 	
-	Object.defineProperty(this, "canvas", { get: () => canvas });
-	Object.defineProperty(this, "context", { get: () => context });
-	
-	let resizable = false;	// DOMのサイズ変更可能か
-	let movable = false;	// スクロール、ズーム可能か
-	let clickable = false;	// クリック位置のポリゴンの取得が可能か
-	let hoverable = false;	// マウス位置のポリゴンの取得が可能か
-	
-	let width, height;
-	
-	let resizeCanvas = function(){
-		width  = wrapdiv.clientWidth  * devicePixelRatio;
-		height = wrapdiv.clientHeight * devicePixelRatio;
-		canvas.width  = width;
-		canvas.height = height;
-		canvas.style.width  = wrapdiv.clientWidth  + "px";
-		canvas.style.height = wrapdiv.clientHeight + "px";
-	};
-	resizeCanvas();
-	addEventListener("resize", function(){
-		resizeCanvas();
-		this.update();
-	}.bind(this));
-	
-	let scale, position_x, position_y;
-	
-	this.move = function(x, y, scl=scale){
-		scale = scl;
-		position_x = x;
-		position_y = y;
+	constructor(div) {
+		this.#div = div;
+		while (this.#div.firstChild) {
+			this.#div.removeChild(this.#div.firstChild);
+		}
+		this.#div.style.position = "relative";
+		
+		this.#canvas = document.createElement("canvas");
+		this.#context = this.#canvas.getContext("2d");
+		this.#div.appendChild(this.#canvas);
+		this.#resizeCanvas();
+		
+		const resizeObserver = new ResizeObserver((entries) => {
+			this.#resizeCanvas();
+			this.update();
+		});
+		resizeObserver.observe(this.#div);
+		
 	};
 	
-	this.moveCenter = function(x, y, scl=scale){
-		scale = scl;
-		this.move(x - width*scale/2, y + height*scale/2);
+	#clickable = false;	// クリック位置のポリゴンの取得が可能か
+	#hoverable = false;	// マウス位置のポリゴンの取得が可能か
+	
+	
+	
+	
+	/* -------- canvas領域の物理解像度 -------- */
+	#width;
+	#height;
+	
+	#resizeCanvas() {
+		this.#width  = this.#div.clientWidth  * devicePixelRatio;
+		this.#height = this.#div.clientHeight * devicePixelRatio;
+		this.#canvas.width  = this.#width;
+		this.#canvas.height = this.#height;
+		this.#canvas.style.width  = this.#div.clientWidth  + "px";
+		this.#canvas.style.height = this.#div.clientHeight + "px";
 	};
 	
-	this.moveDiff = function(x, y){
-		this.move(position_x - x*scale, position_y + y*scale);
+	
+	
+	
+	/* -------- onupdateの登録および描画処理 -------- */
+	backgroundColor = "#fff";
+	lineWidth = 1;
+	
+	#onupdate = function(){};
+	set onupdate(f) {
+		if(typeof f == "function"){
+			this.#onupdate = f;
+		}
+		else{
+			console.error("Uncaught TypeError: geoJson.onupdate is not a function");
+		}
 	};
 	
-	this.changeScale = function(scl, x=width/2, y=height/2){
+	update() {
+		const fillStyle_ = this.#context.fillStyle;
+		this.#context.fillStyle = this.backgroundColor;
+		this.#context.fillRect(0, 0, this.#width, this.#height);
+		this.#onupdate();
+		this.#context.fillStyle = fillStyle_;
+	};
+	
+	
+	
+	
+	/* -------- 地図上の座標計算処理 -------- */
+	#position_x = 138;	// 経度
+	#position_y = 36;		// 緯度
+	scale = 0.02048;		// 縮尺 [°/px]
+	
+	move(x, y) {
+		this.#position_x = x;
+		this.#position_y = y;
+	};
+	
+	moveCenter(x, y) {
 		this.move(
-			position_x - x * (scl - scale),
-			position_y + y * (scl - scale),
-			scl
+			x - this.#width * this.scale / 2,
+			y + this.#height * this.scale / 2
 		);
-		if(clickable){
+	};
+	
+	moveDiff(x, y) {
+		this.move(
+			this.#position_x - x * this.scale,
+			this.#position_y + y * this.scale
+		);
+	};
+	
+	changeScale(scale, x = this.width/2, y = this.height/2) {
+		this.move(
+			this.#position_x - x * (scale - this.scale),
+			this.#position_y + y * (scale - this.scale)
+		);
+		this.scale = scale;
+		if (this.clickable) {
 			click_x = click_y = -1;
-			onclickstatechange();
+//			this.#onclickstatechange();
 		}
 		this.update();
 	};
 	
-	this.moveCenter(138, 36, 0.02048);
 	
-	Object.defineProperty(this, "scale", {
-		get: () => scale
-	});
 	
-	let calc_x = x => (x - position_x) / scale;
-	let calc_y = y => -(y - position_y) / scale;
 	
-	this.drawGeometry = function(geometry, lineWidth, lineColor, fillColor) {
+	/* -------- 地図描画処理 -------- */
+	// 経度緯度 -> 座標に変換
+	#deg2px(x, y) {
+		return [ (x - this.#position_x) / this.scale, (this.#position_y - y) / this.scale ];
+	};
+	
+	drawGeometry(geometry, lineWidth, lineColor, fillColor) {
 		if (geometry?.type === "Polygon") {
 			this.drawPolygon(geometry.coordinates, lineWidth, lineColor, fillColor);
 		}
 	};
 	
-	this.drawPolygon = function(polygons, lineWidth, lineColor, fillColor){
-		context.lineWidth = lineWidth * devicePixelRatio;
-		for(let polygon of polygons){
-			context.beginPath();
-			context.moveTo(
-				calc_x(polygon[0][0]),
-				calc_y(polygon[0][1])
-			);
-			for(let i=1; i<polygon.length; i++){
-				context.lineTo(
-					calc_x(polygon[i][0]),
-					calc_y(polygon[i][1])
-				);
+	drawPolygon(polygons, lineWidth = 1, lineColor = "#000", fillColor = "#fff") {
+		this.#context.lineWidth = lineWidth * devicePixelRatio;
+		for (let polygon of polygons) {
+			this.#context.beginPath();
+			this.#context.moveTo(...this.#deg2px(...polygon[0]));
+			for (let i=1; i<polygon.length; i++) {
+				this.#context.lineTo(...this.#deg2px(...polygon[i]));
 			}
-			context.closePath();
-			if(fillColor){
-				context.fillStyle = fillColor;
-				context.fill();
+			this.#context.closePath();
+			if (fillColor) {
+				this.#context.fillStyle = fillColor;
+				this.#context.fill();
 			}
-			if(lineWidth){
-				context.strokeStyle = lineColor;
-				context.stroke();
+			if (lineWidth) {
+				this.#context.strokeStyle = lineColor;
+				this.#context.stroke();
 			}
 		}
 	};
 	
-	this.backgroundColor = "#fff";
-	
-		// マウス検知処理
-	let mouseInPolygon = function(polygons, x, y){
+	mouseInPolygon(polygons, x, y) {
 		if(x == -1 && y == -1){ return false; }
 		for(let polygon of polygons){
 			context.beginPath();
-			context.moveTo(
-				calc_x(polygon[0][0]),
-				calc_y(polygon[0][1])
-			);
+			this.#context.moveTo(...this.#deg2px(...polygon[0]));
 			for(let i=1; i<polygon.length; i++){
-				context.lineTo(
-					calc_x(polygon[i][0]),
-					calc_y(polygon[i][1])
-				);
+				this.#context.lineTo(...this.#deg2px(...polygon[i]));
 			}
 			context.closePath();
 			if(context.isPointInPath(x, y)){ return true; }
@@ -126,220 +158,192 @@ window.MapCanvas = function(div){
 	};
 	
 	
-	/* -------- onupdateの登録および描画処理 -------- */
-	
-	let onupdate = function(){};
-	Object.defineProperty(this, "onupdate", {
-		set: function(f){
-			if(typeof f == "function"){
-				onupdate = f;
-			}
-			else{
-				console.error("MapCanvas.onupdate must be function");
-			}
-		},
-		get: () => onupdate
-	});
-	
-	this.update = function(){
-		context.fillStyle = this.backgroundColor;
-		context.fillRect(0, 0, width, height);
-		onupdate();
-	};
-	
-	
 	
 	
 	/* -------- movable関連の処理 -------- */
+	#draggable = false;
+	
+	set draggable(f) {
+		if (f) { this.#dragInit(); }
+	};
 	
 	// クリック開始時1、ドラッグ中2
-	let movable_status = 0;
+	drag_status = 0;
 	
-	let movable_mapimage = new Image();
+	// ドラッグ中に保持しておく画像
+	drag_mapimage = new Image();
 	
 	// ドラッグ開始時の座標
-	let movable_start_x, movable_start_y;
+	#drag_start_x;
+	#drag_start_y;
 	
 	// 最新の指の位置
-	let movable_x, movable_y;
+	#drag_x;
+	#drag_y;
 	
-	Object.defineProperty(this, "movable_start_x", {
-		get: () => movable_x
-	});
-	
-	let ondragstart = function(){};
-	Object.defineProperty(this, "ondragstart", {
-		set: function(f){
-			if(typeof f == "function"){
-				ondragstart = f;
-			}
-			else{
-				console.error("MapCanvas.ondragstart must be function");
-			}
-		},
-		get: () => ondragstart
-	});
-	
-	let movable_eventStart = function(){
-		movable_status = 1;
-		movable_mapimage.src = canvas.toDataURL("png");
+	#ondragstart = function(){};
+	set ondragstart(f){
+		if (typeof f === "function") {
+			this.#ondragstart = f;
+		}
+		else{
+			console.error("Uncaught TypeError: geoJson.ondragstart is not a function");
+		}
 	};
 	
-	let movable_eventContinue = function(x, y, mapLib){
-		if(movable_status == 1){
-			movable_status = 2;
-			movable_start_x = movable_x = x;
-			movable_start_y = movable_y = y;
+	dragStart() {
+		this.drag_status = 1;
+		this.drag_mapimage.src = this.#canvas.toDataURL("png");
+	};
+	
+	#dragContinue(x, y) {
+		if (this.drag_status === 1) {
+			this.drag_status = 2;
+			this.#drag_start_x = this.#drag_x = x;
+			this.#drag_start_y = this.#drag_y = y;
 		}
-		else if(movable_status == 2){
-			movable_x = x;
-			movable_y = y;
-			context.fillStyle = mapLib.backgroundColor;
-			context.fillRect(0, 0, width, height);
-			context.drawImage(
-				movable_mapimage,
-				(movable_x - movable_start_x)*devicePixelRatio,
-				(movable_y - movable_start_y)*devicePixelRatio
+		else if (this.drag_status === 2) {
+			this.#drag_x = x;
+			this.#drag_y = y;
+			this.#context.fillStyle = this.backgroundColor;
+			this.#context.fillRect(0, 0, this.#width, this.#height);
+			this.#context.drawImage(
+				this.drag_mapimage,
+				(this.#drag_x - this.#drag_start_x) * devicePixelRatio,
+				(this.#drag_y - this.#drag_start_y) * devicePixelRatio
 			);
-			ondragstart();
+			this.#ondragstart();
 		}
 	};
 	
-	let movable_eventEnd = function(x, y, mapLib){
-		if(movable_status == 2){
-			mapLib.moveDiff((x - movable_start_x)*devicePixelRatio, (y - movable_start_y)*devicePixelRatio);
-			mapLib.update();
+	#dragEnd(x, y) {
+		if (this.drag_status === 2){
+			this.moveDiff(
+				(x - this.#drag_start_x) * devicePixelRatio,
+				(y - this.#drag_start_y) * devicePixelRatio
+			);
+			this.update();
 		}
-		movable_status = 0;
+		this.drag_status = 0;
 	};
 	
-	Object.defineProperty(this, "movable", {
-		set: function(movable){
-			if(movable){
-				canvas.addEventListener("mousedown", movable_eventStart);
-				canvas.addEventListener("touchstart", movable_eventStart);
-				
-				canvas.addEventListener("mousemove", function(){
-					let offset = event.target.getBoundingClientRect();
-					movable_eventContinue(event.clientX - offset.left, event.clientY - offset.top, this);
-				}.bind(this));
-				
-				canvas.addEventListener("touchmove", function(){
-					let offset = event.target.getBoundingClientRect();
-					movable_eventContinue(event.touches[0].clientX - offset.left, event.touches[0].clientY - offset.top, this);
-				}.bind(this));
-				
-				canvas.addEventListener("mouseup", function(){
-					let offset = event.target.getBoundingClientRect();
-					movable_eventEnd(event.clientX - offset.left, event.clientY - offset.top, this);
-				}.bind(this));
-				
-				canvas.addEventListener("mouseleave", function(){
-					let offset = event.target.getBoundingClientRect();
-					movable_eventEnd(event.clientX - offset.left, event.clientY - offset.top, this);
-				}.bind(this));
-				
-				canvas.addEventListener("touchend", function(){
-					let offset = event.target.getBoundingClientRect();
-					movable_eventEnd(event.changedTouches[0].clientX - offset.left, event.changedTouches[0].clientY - offset.top, this);
-				}.bind(this));
-				
-				canvas.addEventListener("wheel", function(){
-					if(movable_status == 0){
-						let offset = event.target.getBoundingClientRect();
-						if(event.deltaY > 0){
-							this.changeScale(
-								scale*2,
-								(event.clientX - offset.left) * devicePixelRatio,
-								(event.clientY - offset.top) * devicePixelRatio
-							);
-						}
-						else{
-							this.changeScale(
-								scale/2,
-								(event.clientX - offset.left) * devicePixelRatio,
-								(event.clientY - offset.top) * devicePixelRatio
-							);
-						}
-					}
-				}.bind(this));
-				
-				for(let i=0; i<2; i++){
-					let button = document.createElement("button");
-					button.innerHTML = ["+", "−"][i];
-					button.style.cssText = `
-						position: absolute;
-						top: ${i*50+16}px;
-						left: 16px;
-						appearance: none;
-						width: 40px;
-						height: 40px;
-						font-size: 30px;
-						line-height: 40px;
-						vertical-align: middle;
-						cursor: pointer;
-						border: none;
-						border-radius: 8px;
-						background: #fff;
-						color: #666;
-						box-shadow: 0 1px 4px rgb(0 0 0 / 30%);
-					`;
-					button.addEventListener("click", [
-						function(){ this.changeScale(scale/2); },
-						function(){ this.changeScale(scale*2); }
-					][i].bind(this));
-					wrapdiv.appendChild(button);
+	#dragInit() {
+		this.#canvas.addEventListener("mousedown", this.dragStart);
+		this.#canvas.addEventListener("touchstart", this.dragStart);
+		
+		this.#canvas.addEventListener("mousemove", function() {
+			const offset = event.target.getBoundingClientRect();
+			this.#dragContinue(event.clientX - offset.left, event.clientY - offset.top, this);
+		}.bind(this));
+		
+		this.#canvas.addEventListener("touchmove", function() {
+			const offset = event.target.getBoundingClientRect();
+			this.#dragContinue(event.touches[0].clientX - offset.left, event.touches[0].clientY - offset.top, this);
+		}.bind(this));
+		
+		this.#canvas.addEventListener("mouseup", function() {
+			const offset = event.target.getBoundingClientRect();
+			this.#dragEnd(event.clientX - offset.left, event.clientY - offset.top, this);
+		}.bind(this));
+		
+		this.#canvas.addEventListener("mouseleave", function() {
+			const offset = event.target.getBoundingClientRect();
+			this.#dragEnd(event.clientX - offset.left, event.clientY - offset.top, this);
+		}.bind(this));
+		
+		this.#canvas.addEventListener("touchend", function() {
+			const offset = event.target.getBoundingClientRect();
+			this.#dragEnd(event.changedTouches[0].clientX - offset.left, event.changedTouches[0].clientY - offset.top, this);
+		}.bind(this));
+		
+		this.#canvas.addEventListener("wheel", function() {
+			if (this.drag_status === 0) {
+				const offset = event.target.getBoundingClientRect();
+				if (event.deltaY > 0) {
+					this.changeScale(
+						this.scale * 2,
+						(event.clientX - offset.left) * devicePixelRatio,
+						(event.clientY - offset.top) * devicePixelRatio
+					);
+				}
+				else {
+					this.changeScale(
+						scale / 2,
+						(event.clientX - offset.left) * devicePixelRatio,
+						(event.clientY - offset.top) * devicePixelRatio
+					);
 				}
 			}
+		}.bind(this));
+		
+		for (let i=0; i<2; i++) {
+			const button = document.createElement("button");
+			button.innerHTML = ["+", "−"][i];
+			button.style.cssText = `
+				position: absolute;
+				top: ${i*50+16}px;
+				left: 16px;
+				appearance: none;
+				width: 40px;
+				height: 40px;
+				font-size: 30px;
+				line-height: 40px;
+				vertical-align: middle;
+				cursor: pointer;
+				border: none;
+				border-radius: 8px;
+				background: #fff;
+				color: #666;
+				box-shadow: 0 1px 4px rgb(0 0 0 / 30%);
+			`;
+			button.addEventListener("click", [
+				function(){ this.changeScale(this.scale / 2); },
+				function(){ this.changeScale(this.scale * 2); }
+			][i].bind(this));
+			this.#div.appendChild(button);
 		}
-	});
-	
-	
-	
-	
+	};
+		
 	/* -------- clickableの登録処理 -------- */
 	
 	// クリック位置の座標 (クリック状態 → 解除の場合、-1)
-	let click_x = -1, click_y = -1;
+	click_x = -1;
+	click_y = -1;
 	
-	let onclickstatechange = function(){};
-	Object.defineProperty(this, "onclickstatechange", {
-		set: function(f){
-			if(typeof f == "function"){
-				onclickstatechange = f;
-			}
-			else{
-				console.error("MapCanvas.onclickstatechange must be function");
-			}
-		},
-		get: () => onclickstatechange
-	});
+	#onclickstatechange = function(){};
+	set onclickstatechange(f) {
+		if(typeof f == "function"){
+			this.#onclickstatechange = f;
+		}
+		else{
+			console.error("Uncaught TypeError: geoJson.onclickstatechange is not a function");
+		}
+	};
 	
-	let clickable_event = function(x, y, event){
+	clickable_event(x, y, event) {
 		click_x = x*devicePixelRatio;
 		click_y = y*devicePixelRatio;
-		onclickstatechange(event);
+		this.#onclickstatechange(event);
 	};
 	
-	this.polygonClick = function(polygon){
-		return mouseInPolygon(polygon, click_x, click_y);
+	polygonClick(polygon) {
+		return this.mouseInPolygon(polygon, click_x, click_y);
 	};
 	
-	Object.defineProperty(this, "clickable", {
-		set: function(clickable){
-			if(clickable){
-				canvas.addEventListener("mouseup", function(){
-					let offset = event.target.getBoundingClientRect();
-					clickable_event(event.clientX - offset.left, event.clientY - offset.top);
-				}.bind(this));
-				
-				canvas.addEventListener("touchend", function(){
-					let offset = event.target.getBoundingClientRect();
-					clickable_event(event.changedTouches[0].clientX - offset.left, event.changedTouches[0].clientY - offset.top, event);
-				}.bind(this));
-				
-			}
+	set clickable(f) {
+		this.clickable = f;
+		if(f){
+			canvas.addEventListener("mouseup", function(){
+				let offset = event.target.getBoundingClientRect();
+				clickable_event(event.clientX - offset.left, event.clientY - offset.top);
+			}.bind(this));
+			
+			canvas.addEventListener("touchend", function(){
+				let offset = event.target.getBoundingClientRect();
+				clickable_event(event.changedTouches[0].clientX - offset.left, event.changedTouches[0].clientY - offset.top, event);
+			}.bind(this));
+			
 		}
-	});
+	};
 	
 };

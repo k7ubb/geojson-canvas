@@ -1,0 +1,36 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta http-equiv="Content-Style-Type" content="text/css">
+<meta http-equiv="Content-Script-Type" content="text/javascript">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>geojson-canvas sample</title>
+</head>
+
+<body>
+<div id="canvas" style="width:100%;height:100%"></div>
+
+<script type="text/javascript" src="geojson-canvas.js"></script>
+<script type="text/javascript">
+addEventListener("load", async () => {
+	const mapdata = await (await fetch("map.json")).json();
+	window. canvas = new geojsonCanvas(document.getElementById("canvas"));
+
+	canvas.backgroundColor = "#EEF9F9";
+	canvas.scale = 0.00256;
+	canvas.moveCenter(138.3, 35);
+	
+	canvas.onupdate = () => {
+		for (let feature of mapdata.features) {
+			canvas.drawGeometry(feature.geometry, 1, "#999", "#fff");
+		}
+	};
+	canvas.update();
+	
+	canvas.draggable = true;
+});
+</script>
+
+</body>
+</html>
