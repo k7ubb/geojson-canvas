@@ -273,6 +273,7 @@ class geojsonCanvas {
 				appearance: none;
 				width: 40px;
 				height: 40px;
+				padding: 0;
 				font-size: 30px;
 				line-height: 40px;
 				vertical-align: middle;
