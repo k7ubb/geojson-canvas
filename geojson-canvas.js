@@ -237,7 +237,7 @@ class geojsonCanvas {
 		}.bind(this));
 		
 		this.#canvas.addEventListener("touchmove", function(event) {
-			this.#dragContinue(event.touches[0].clientX, event.clientY, event.target.getBoundingClientRect())
+			this.#dragContinue(event.touches[0].clientX, event.touches[0].clientY, event.target.getBoundingClientRect())
 		}.bind(this));
 		
 		this.#canvas.addEventListener("mouseup", function(event) {
