@@ -19,7 +19,12 @@ class geojsonCanvas {
 	get image() {
 		return this.#canvas.toDataURL("png");
 	};
-		
+	
+	// 経市区町村値マップで必要なため、暫定的に追加
+	get context() {
+		return this.#context;
+	};
+	
 	constructor(div) {
 		this.#div = div;
 		while (this.#div.firstChild) {
@@ -32,13 +37,12 @@ class geojsonCanvas {
 		this.#div.appendChild(this.#canvas);
 		this.#resizeCanvas();
 		
-		const resizeObserver = new ResizeObserver(() => {
+		addEventListener("resize", function() {
 			this.#resizeCanvas();
 			this.update();
-		});
-		resizeObserver.observe(this.#div);
+		}.bind(this));	
 	};
-	
+
 	
 	
 	
@@ -121,7 +125,7 @@ class geojsonCanvas {
 		this.#context.closePath();
 	};
 
-	#drawPolygon(polygons, lineWidth = 1, lineColor = "#000", fillColor = "#fff") {
+	#drawPolygon(polygons, lineWidth, lineColor, fillColor) {
 		this.#createPath(polygons[0]);
 		this.#context.lineWidth = lineWidth * devicePixelRatio;
 		if (fillColor) {
