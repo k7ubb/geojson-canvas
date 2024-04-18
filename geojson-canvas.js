@@ -4,6 +4,22 @@ class geojsonCanvas {
 	#canvas;
 	#context;
 	
+	#width;
+	#height;
+	
+	#resizeCanvas() {
+		this.#width  = this.#div.clientWidth  * devicePixelRatio;
+		this.#height = this.#div.clientHeight * devicePixelRatio;
+		this.#canvas.width  = this.#width;
+		this.#canvas.height = this.#height;
+		this.#canvas.style.width  = this.#div.clientWidth  + "px";
+		this.#canvas.style.height = this.#div.clientHeight + "px";
+	};
+
+	get image() {
+		return this.#canvas.toDataURL("png");
+	};
+		
 	constructor(div) {
 		this.#div = div;
 		while (this.#div.firstChild) {
@@ -16,46 +32,25 @@ class geojsonCanvas {
 		this.#div.appendChild(this.#canvas);
 		this.#resizeCanvas();
 		
-		const resizeObserver = new ResizeObserver((entries) => {
+		const resizeObserver = new ResizeObserver(() => {
 			this.#resizeCanvas();
 			this.update();
 		});
 		resizeObserver.observe(this.#div);
-		
-	};
-	
-	#clickable = false;	// クリック位置のポリゴンの取得が可能か
-	#hoverable = false;	// マウス位置のポリゴンの取得が可能か
-	
-	
-	
-	
-	/* -------- canvas領域の物理解像度 -------- */
-	#width;
-	#height;
-	
-	#resizeCanvas() {
-		this.#width  = this.#div.clientWidth  * devicePixelRatio;
-		this.#height = this.#div.clientHeight * devicePixelRatio;
-		this.#canvas.width  = this.#width;
-		this.#canvas.height = this.#height;
-		this.#canvas.style.width  = this.#div.clientWidth  + "px";
-		this.#canvas.style.height = this.#div.clientHeight + "px";
 	};
 	
 	
 	
 	
-	/* -------- onupdateの登録および描画処理 -------- */
+	/* -------- 描画処理 -------- */
 	backgroundColor = "#fff";
-	lineWidth = 1;
 	
 	#onupdate = function(){};
 	set onupdate(f) {
-		if(typeof f == "function"){
+		if (typeof f === "function") {
 			this.#onupdate = f;
 		}
-		else{
+		else {
 			console.error("Uncaught TypeError: geoJson.onupdate is not a function");
 		}
 	};
@@ -71,7 +66,7 @@ class geojsonCanvas {
 	
 	
 	
-	/* -------- 地図上の座標計算処理 -------- */
+	/* -------- 座標計算 -------- */
 	#position_x = 138;	// 経度
 	#position_y = 36;		// 緯度
 	scale = 0.02048;		// 縮尺 [°/px]
@@ -95,7 +90,7 @@ class geojsonCanvas {
 		);
 	};
 	
-	changeScale(scale, x = this.width/2, y = this.height/2) {
+	changeScale(scale, x = this.#width/2, y = this.#height/2) {
 		this.move(
 			this.#position_x - x * (scale - this.scale),
 			this.#position_y + y * (scale - this.scale)
@@ -103,7 +98,7 @@ class geojsonCanvas {
 		this.scale = scale;
 		if (this.clickable) {
 			click_x = click_y = -1;
-//			this.#onclickstatechange();
+			this.#onclickstatechange();
 		}
 		this.update();
 	};
@@ -111,56 +106,49 @@ class geojsonCanvas {
 	
 	
 	
-	/* -------- 地図描画処理 -------- */
+	/* -------- 描画 -------- */
 	// 経度緯度 -> 座標に変換
 	#deg2px(x, y) {
 		return [ (x - this.#position_x) / this.scale, (this.#position_y - y) / this.scale ];
 	};
 	
+	#createPath(polygon) {
+		this.#context.beginPath();
+		this.#context.moveTo(...this.#deg2px(...polygon[0]));
+		for (let i = 1; i < polygon.length; i++) {
+			this.#context.lineTo(...this.#deg2px(...polygon[i]));
+		}
+		this.#context.closePath();
+	};
+
+	#drawPolygon(polygons, lineWidth = 1, lineColor = "#000", fillColor = "#fff") {
+		this.#createPath(polygons[0]);
+		this.#context.lineWidth = lineWidth * devicePixelRatio;
+		if (fillColor) {
+			this.#context.fillStyle = fillColor;
+			this.#context.fill();
+		}
+		if (lineWidth) {
+			this.#context.strokeStyle = lineColor;
+			this.#context.stroke();
+		}
+	};
+	
 	drawGeometry(geometry, lineWidth, lineColor, fillColor) {
 		if (geometry?.type === "Polygon") {
-			this.drawPolygon(geometry.coordinates, lineWidth, lineColor, fillColor);
+			this.#drawPolygon(geometry.coordinates, lineWidth, lineColor, fillColor);
 		}
-	};
-	
-	drawPolygon(polygons, lineWidth = 1, lineColor = "#000", fillColor = "#fff") {
-		this.#context.lineWidth = lineWidth * devicePixelRatio;
-		for (let polygon of polygons) {
-			this.#context.beginPath();
-			this.#context.moveTo(...this.#deg2px(...polygon[0]));
-			for (let i=1; i<polygon.length; i++) {
-				this.#context.lineTo(...this.#deg2px(...polygon[i]));
-			}
-			this.#context.closePath();
-			if (fillColor) {
-				this.#context.fillStyle = fillColor;
-				this.#context.fill();
-			}
-			if (lineWidth) {
-				this.#context.strokeStyle = lineColor;
-				this.#context.stroke();
+		else if (geometry?.type === "MultiPolygon") {
+			for (let coordinate of geometry.coordinates) {
+				this.#drawPolygon(coordinate, lineWidth, lineColor, fillColor);
 			}
 		}
 	};
 	
-	mouseInPolygon(polygons, x, y) {
-		if(x == -1 && y == -1){ return false; }
-		for(let polygon of polygons){
-			context.beginPath();
-			this.#context.moveTo(...this.#deg2px(...polygon[0]));
-			for(let i=1; i<polygon.length; i++){
-				this.#context.lineTo(...this.#deg2px(...polygon[i]));
-			}
-			context.closePath();
-			if(context.isPointInPath(x, y)){ return true; }
-		}
-		return false;
-	};
 	
 	
 	
-	
-	/* -------- movable関連の処理 -------- */
+	/* -------- drag処理 -------- */
 	#draggable = false;
 	
 	set draggable(f) {
@@ -168,10 +156,10 @@ class geojsonCanvas {
 	};
 	
 	// クリック開始時1、ドラッグ中2
-	drag_status = 0;
+	#drag_status = 0;
 	
 	// ドラッグ中に保持しておく画像
-	drag_mapimage = new Image();
+	#drag_mapimage = new Image();
 	
 	// ドラッグ開始時の座標
 	#drag_start_x;
@@ -182,33 +170,35 @@ class geojsonCanvas {
 	#drag_y;
 	
 	#ondragstart = function(){};
-	set ondragstart(f){
+	set ondragstart(f) {
 		if (typeof f === "function") {
 			this.#ondragstart = f;
 		}
-		else{
+		else {
 			console.error("Uncaught TypeError: geoJson.ondragstart is not a function");
 		}
 	};
 	
-	dragStart() {
-		this.drag_status = 1;
-		this.drag_mapimage.src = this.#canvas.toDataURL("png");
+	#dragStart() {
+		this.#drag_status = 1;
+		this.#drag_mapimage.src = this.#canvas.toDataURL("png");
 	};
 	
-	#dragContinue(x, y) {
-		if (this.drag_status === 1) {
-			this.drag_status = 2;
+	#dragContinue(clientX, clientY, offset) {
+		const x = clientX - offset.left;
+		const y = clientY - offset.top
+		if (this.#drag_status === 1) {
+			this.#drag_status = 2;
 			this.#drag_start_x = this.#drag_x = x;
 			this.#drag_start_y = this.#drag_y = y;
 		}
-		else if (this.drag_status === 2) {
+		else if (this.#drag_status === 2) {
 			this.#drag_x = x;
 			this.#drag_y = y;
 			this.#context.fillStyle = this.backgroundColor;
 			this.#context.fillRect(0, 0, this.#width, this.#height);
 			this.#context.drawImage(
-				this.drag_mapimage,
+				this.#drag_mapimage,
 				(this.#drag_x - this.#drag_start_x) * devicePixelRatio,
 				(this.#drag_y - this.#drag_start_y) * devicePixelRatio
 			);
@@ -216,63 +206,56 @@ class geojsonCanvas {
 		}
 	};
 	
-	#dragEnd(x, y) {
-		if (this.drag_status === 2){
+	#dragEnd(clientX, clientY, offset) {
+		const x = clientX - offset.left;
+		const y = clientY - offset.top;
+		if (this.#drag_status === 2) {
 			this.moveDiff(
 				(x - this.#drag_start_x) * devicePixelRatio,
 				(y - this.#drag_start_y) * devicePixelRatio
 			);
 			this.update();
 		}
-		this.drag_status = 0;
+		this.#drag_status = 0;
 	};
 	
 	#dragInit() {
-		this.#canvas.addEventListener("mousedown", this.dragStart);
-		this.#canvas.addEventListener("touchstart", this.dragStart);
-		
-		this.#canvas.addEventListener("mousemove", function() {
-			const offset = event.target.getBoundingClientRect();
-			this.#dragContinue(event.clientX - offset.left, event.clientY - offset.top, this);
+		this.#canvas.addEventListener("mousedown", function() {
+			this.#dragStart();
+		}.bind(this));
+
+		this.#canvas.addEventListener("touchstart", function() {
+			this.#dragStart();
 		}.bind(this));
 		
-		this.#canvas.addEventListener("touchmove", function() {
-			const offset = event.target.getBoundingClientRect();
-			this.#dragContinue(event.touches[0].clientX - offset.left, event.touches[0].clientY - offset.top, this);
+		this.#canvas.addEventListener("mousemove", function(event) {
+			this.#dragContinue(event.clientX, event.clientY, event.target.getBoundingClientRect())
 		}.bind(this));
 		
-		this.#canvas.addEventListener("mouseup", function() {
-			const offset = event.target.getBoundingClientRect();
-			this.#dragEnd(event.clientX - offset.left, event.clientY - offset.top, this);
+		this.#canvas.addEventListener("touchmove", function(event) {
+			this.#dragContinue(event.touches[0].clientX, event.clientY, event.target.getBoundingClientRect())
 		}.bind(this));
 		
-		this.#canvas.addEventListener("mouseleave", function() {
-			const offset = event.target.getBoundingClientRect();
-			this.#dragEnd(event.clientX - offset.left, event.clientY - offset.top, this);
+		this.#canvas.addEventListener("mouseup", function(event) {
+			this.#dragEnd(event.clientX, event.clientY, event.target.getBoundingClientRect());
 		}.bind(this));
 		
-		this.#canvas.addEventListener("touchend", function() {
-			const offset = event.target.getBoundingClientRect();
-			this.#dragEnd(event.changedTouches[0].clientX - offset.left, event.changedTouches[0].clientY - offset.top, this);
+		this.#canvas.addEventListener("mouseleave", function(event) {
+			this.#dragEnd(event.clientX, event.clientY, event.target.getBoundingClientRect());
 		}.bind(this));
 		
-		this.#canvas.addEventListener("wheel", function() {
-			if (this.drag_status === 0) {
+		this.#canvas.addEventListener("touchend", function(event) {
+			this.#dragEnd(event.changedTouches[0].clientX, event.changedTouches[0].clientY, event.target.getBoundingClientRect());
+		}.bind(this));
+		
+		this.#canvas.addEventListener("wheel", function(event) {
+			if (this.#drag_status === 0) {
 				const offset = event.target.getBoundingClientRect();
-				if (event.deltaY > 0) {
-					this.changeScale(
-						this.scale * 2,
-						(event.clientX - offset.left) * devicePixelRatio,
-						(event.clientY - offset.top) * devicePixelRatio
-					);
-				}
-				else {
-					this.changeScale(
-						scale / 2,
-						(event.clientX - offset.left) * devicePixelRatio,
-						(event.clientY - offset.top) * devicePixelRatio
-					);
-				}
+				this.changeScale(
+					event.deltaY > 0 ? this.scale * 2 : this.scale / 2,
+					(event.clientX - offset.left) * devicePixelRatio,
+					(event.clientY - offset.top) * devicePixelRatio
+				);
 			}
 		}.bind(this));
 		
@@ -304,46 +287,70 @@ class geojsonCanvas {
 		}
 	};
 		
-	/* -------- clickableの登録処理 -------- */
+
+
+
+	/* -------- click処理 -------- */
+	#clickable = false;
+	
+	set clickable(f) {
+		if (f) { this.#clickInit(); }
+	};
 	
 	// クリック位置の座標 (クリック状態 → 解除の場合、-1)
-	click_x = -1;
-	click_y = -1;
+	#click_x = -1;
+	#click_y = -1;
+	
+	#mouseInPolygon(polygons, x, y) {
+		this.#createPath(polygons[0]);
+		if (this.#context.isPointInPath(x, y)) {
+			return true;
+		}
+	};
+
+	#mouseInGeometry(geometry, x, y) {
+		if (x === -1 && y === -1){
+			return false;
+		}
+		if (geometry?.type === "Polygon") {
+			return this.#mouseInPolygon(geometry.coordinates, x, y);
+		}
+		else if (geometry.type === "MultiPolygon") {
+			for (let coordinate of geometry.coordinates) {
+				return this.#mouseInPolygon(coordinate, x, y);
+			}
+		}
+		return false;
+	};
 	
 	#onclickstatechange = function(){};
 	set onclickstatechange(f) {
-		if(typeof f == "function"){
+		if (typeof f === "function") {
 			this.#onclickstatechange = f;
 		}
-		else{
+		else {
 			console.error("Uncaught TypeError: geoJson.onclickstatechange is not a function");
 		}
 	};
 	
-	clickable_event(x, y, event) {
-		click_x = x*devicePixelRatio;
-		click_y = y*devicePixelRatio;
-		this.#onclickstatechange(event);
+	#click_event(clientX, clientY, offset) {
+		this.#click_x = (clientX - offset.left) * devicePixelRatio;
+		this.#click_y = (clientY - offset.top) * devicePixelRatio;
+		this.#onclickstatechange();
 	};
 	
-	polygonClick(polygon) {
-		return this.mouseInPolygon(polygon, click_x, click_y);
+	isGeometryClicked(geometry) {
+		return this.#mouseInGeometry(geometry, this.#click_x, this.#click_y);
 	};
 	
-	set clickable(f) {
-		this.clickable = f;
-		if(f){
-			canvas.addEventListener("mouseup", function(){
-				let offset = event.target.getBoundingClientRect();
-				clickable_event(event.clientX - offset.left, event.clientY - offset.top);
-			}.bind(this));
-			
-			canvas.addEventListener("touchend", function(){
-				let offset = event.target.getBoundingClientRect();
-				clickable_event(event.changedTouches[0].clientX - offset.left, event.changedTouches[0].clientY - offset.top, event);
-			}.bind(this));
-			
-		}
+	#clickInit() {
+		this.#canvas.addEventListener("mouseup", function (event) {
+			this.#click_event(event.clientX, event.clientY, event.target.getBoundingClientRect());
+		}.bind(this));
+
+		this.#canvas.addEventListener("touchend", function (event) {
+			this.#click_event(event.changedTouches[0].clientX, event.changedTouches[0].clientY, event.target.getBoundingClientRect());
+		}.bind(this));
 	};
 	
 };

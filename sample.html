@@ -29,6 +29,18 @@ addEventListener("load", async () => {
 	canvas.update();
 	
 	canvas.draggable = true;
+	canvas.clickable = true;
+
+	canvas.onclickstatechange = () => {
+		canvas.update();		
+		for (let feature of mapdata.features) {
+			if (canvas.isGeometryClicked(feature.geometry)) {
+				canvas.drawGeometry(feature.geometry, 1, "#999", "#f00")
+				break;
+			}
+		}
+	};
+
 });
 </script>
 
