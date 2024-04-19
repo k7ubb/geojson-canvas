@@ -1,24 +1,31 @@
-# shpCanvas
-地理情報をcanvas APIで描画するjavascriptライブラリ
+# geojson-canvas
+geoJSON形式のジオメトリをcanvas APIで描画するjavascriptライブラリ
 
 # 使用例
-[訪問市区町村マップ](https://map.bb.xrea.jp/)
+[経市区町村値マップ](https://map.bb.xrea.jp/): 訪問した市区町村を点数化・可視化するwebアプリです。
 
 # 使用方法
-MultiPolygon形式のデータを用意して、Canvasに描画する
+geoJSON形式のデータを用意して、Canvasに描画する
 
-```
-const polygon = [
-  [[146.819,43.875], [146.821,43.874], ...],
-  [[146.794,43.879], [146.787,43.877], ...],
-  ...
-];
-const lineWidth = 1;
-const lineColor = "#000000";
-const fillColor = "#ff0000";
-const shpCanvas = new MapCanvas(document.querySelector(".shpCanvas"));
-shpCanvas.moveCenter(135, 35, 0.02048);
-shpCanvas.drawPolygon(polygon, lineWidth, lineColor, fillColor);
+```  
+const feature = {
+  type: "Feature",
+  properties: { ... },
+  geometry: {
+    type: "Polygon",
+    coordinates: [
+      [ [135.00, 35.00], ... ]
+    ]
+  }
+};
+
+const geojson = new geojsonCanvas(document.getElementById("canvas"));
+
+geojson.backgroundColor = "#EEF9F9";
+geojson.scale = 0.00256;
+geojson.moveCenter(138.3, 35);
+
+geojson.drawGeometry(feature.geometry, 1, "#999", "#fff");
 ```
 
 

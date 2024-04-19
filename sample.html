@@ -15,27 +15,27 @@
 <script type="text/javascript">
 addEventListener("load", async () => {
 	const mapdata = await (await fetch("map.json")).json();
-	window. canvas = new geojsonCanvas(document.getElementById("canvas"));
+	const geojson = new geojsonCanvas(document.getElementById("canvas"));
 
-	canvas.backgroundColor = "#EEF9F9";
-	canvas.scale = 0.00256;
-	canvas.moveCenter(138.3, 35);
+	geojson.backgroundColor = "#EEF9F9";
+	geojson.scale = 0.00256;
+	geojson.moveCenter(138.3, 35);
 	
-	canvas.onupdate = () => {
+	geojson.onupdate = () => {
 		for (let feature of mapdata.features) {
-			canvas.drawGeometry(feature.geometry, 1, "#999", "#fff");
+			geojson.drawGeometry(feature.geometry, 1, "#999", "#fff");
 		}
 	};
-	canvas.update();
+	geojson.update();
 	
-	canvas.draggable = true;
-	canvas.clickable = true;
+	geojson.draggable = true;
+	geojson.clickable = true;
 
-	canvas.onclickstatechange = () => {
-		canvas.update();
+	geojson.onclickstatechange = () => {
+		geojson.update();
 		for (let feature of mapdata.features) {
-			if (canvas.isGeometryClicked(feature.geometry)) {
-				canvas.drawGeometry(feature.geometry, 1, "#999", "#f00")
+			if (geojson.isGeometryClicked(feature.geometry)) {
+				geojson.drawGeometry(feature.geometry, 1, "#999", "#f00")
 				break;
 			}
 		}
