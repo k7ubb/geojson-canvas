@@ -150,6 +150,24 @@ class geojsonCanvas {
 				this.#drawPolygon(coordinate, lineWidth, lineColor, fillColor);
 			}
 		}
+		else if (geometry?.type === "LineString") {
+			const polygon = geometry.coordinates;
+			this.#context.beginPath();
+			this.#context.moveTo(...this.#deg2px(...polygon[0]));
+			for (let i = 1; i < polygon.length; i++) {
+				this.#context.lineTo(...this.#deg2px(...polygon[i]));
+				this.#context.lineWidth = lineWidth * devicePixelRatio;
+				this.#context.strokeStyle = lineColor;
+				this.#context.stroke();
+			}
+		}
+		else if (geometry?.type === "Point") {
+			this.#context.beginPath();
+			this.#context.arc(...this.#deg2px(...geometry.coordinates), lineWidth, 0, 2 * Math.PI);
+			this.#context.closePath();
+			this.#context.fillStyle = fillColor;
+			this.#context.fill();
+		}
 	};
 	
 	
