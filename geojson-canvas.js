@@ -322,7 +322,9 @@ class geojsonCanvas {
 		}
 		else if (geometry.type === "MultiPolygon") {
 			for (let coordinate of geometry.coordinates) {
-				return this.#mouseInPolygon(coordinate, x, y);
+				if (this.#mouseInPolygon(coordinate, x, y)) {
+					return true;
+				}
 			}
 		}
 		return false;
