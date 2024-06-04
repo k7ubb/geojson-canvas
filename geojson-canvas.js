@@ -74,6 +74,8 @@ class geojsonCanvas {
 	#position_x = 138;	// 経度
 	#position_y = 36;		// 緯度
 	scale = 0.02048;		// 縮尺 [°/px]
+	maxScale = 0.08192;
+	minScale = 0.00016;
 	
 	move(x, y) {
 		this.#position_x = x;
@@ -95,6 +97,7 @@ class geojsonCanvas {
 	};
 	
 	changeScale(scale, x = this.#width/2, y = this.#height/2) {
+		if (scale > this.maxScale || scale < this.minScale) { return; }
 		this.move(
 			this.#position_x - x * (scale - this.scale),
 			this.#position_y + y * (scale - this.scale)
