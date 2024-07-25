@@ -174,12 +174,19 @@ class geojsonCanvas {
 	
 	
 	/* -------- drag処理 -------- */
-	#draggable = false;
-	
 	set draggable(f) {
 		if (f) { this.#dragInit(); }
 	};
 	
+	// 拡大・縮小ボタン
+	#buttons = [];
+
+	set buttonOffset(x) {
+		for (let button of this.#buttons) {
+			button.style.left = `${x}px`;
+		}
+	};
+
 	// クリック開始時1、ドラッグ中2
 	#drag_status = 0;
 	
@@ -284,10 +291,10 @@ class geojsonCanvas {
 			}
 		}.bind(this));
 		
-		for (let i=0; i<2; i++) {
-			const button = document.createElement("button");
-			button.innerHTML = ["+", "−"][i];
-			button.style.cssText = `
+		for (let i = 0; i < 2; i++) {
+			this.#buttons[i] = document.createElement("button");
+			this.#buttons[i].innerHTML = ["+", "−"][i];
+			this.#buttons[i].style.cssText = `
 				position: absolute;
 				top: ${i*50+16}px;
 				left: 16px;
@@ -305,11 +312,11 @@ class geojsonCanvas {
 				color: #666;
 				box-shadow: 0 1px 4px rgb(0 0 0 / 30%);
 			`;
-			button.addEventListener("click", [
+			this.#buttons[i].addEventListener("click", [
 				function(){ this.changeScale(this.scale / 2); },
 				function(){ this.changeScale(this.scale * 2); }
 			][i].bind(this));
-			this.#div.appendChild(button);
+			this.#div.appendChild(this.#buttons[i]);
 		}
 	};
 		
