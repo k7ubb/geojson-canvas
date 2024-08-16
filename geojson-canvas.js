@@ -291,11 +291,12 @@ class geojsonCanvas {
 					(event.clientY - offset.top) * devicePixelRatio
 				);
 			}
+			event.preventDefault();
 		}.bind(this));
 		
 		for (let i = 0; i < 2; i++) {
 			this.#buttons[i] = document.createElement("button");
-			this.#buttons[i].innerHTML = ["+", "−"][i];
+			this.#buttons[i].innerHTML = ["＋", "－"][i];
 			this.#buttons[i].style.cssText = `
 				position: absolute;
 				top: ${i*50+16}px;
