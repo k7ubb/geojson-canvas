@@ -22,7 +22,6 @@ class geojsonCanvas {
 		return this.#canvas.toDataURL("png");
 	};
 	
-	// 経市区町村値マップで必要なため、暫定的に追加
 	get context() {
 		return this.#context;
 	};
