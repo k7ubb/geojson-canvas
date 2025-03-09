@@ -31,7 +31,9 @@ class geojsonCanvas {
 		while (this.#div.firstChild) {
 			this.#div.removeChild(this.#div.firstChild);
 		}
-		this.#div.style.position = "relative";
+		if (getComputedStyle(this.#div).position === "static") {
+			this.#div.style.position = "relative";
+		}
 		
 		this.#canvas = document.createElement("canvas");
 		this.#context = this.#canvas.getContext("2d");
