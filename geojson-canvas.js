@@ -259,8 +259,9 @@ class geojsonCanvas {
 			this.#dragStart();
 		}.bind(this));
 
-		this.#canvas.addEventListener("touchstart", function() {
+		this.#canvas.addEventListener("touchstart", function(event) {
 			this.#dragStart();
+			event.preventDefault();
 		}.bind(this));
 		
 		this.#canvas.addEventListener("mousemove", function(event) {
