@@ -122,17 +122,24 @@ class geojsonCanvas {
 		return [ (x - this.#position_x) / this.scale, (this.#position_y - y) / this.scale ];
 	};
 	
-	#createPath(polygon) {
+	#createPath([polygon, clip]) {
 		this.#context.beginPath();
 		this.#context.moveTo(...this.#deg2px(...polygon[0]));
 		for (let i = 1; i < polygon.length; i++) {
 			this.#context.lineTo(...this.#deg2px(...polygon[i]));
 		}
+		if (clip) {
+			clip.reverse();
+			this.#context.moveTo(...this.#deg2px(...clip[0]));
+			for (let i = 1; i < clip.length; i++) {
+				this.#context.lineTo(...this.#deg2px(...clip[i]));
+			}
+		}
 		this.#context.closePath();
 	};
 
 	#drawPolygon(polygons, lineWidth, lineColor, fillColor) {
-		this.#createPath(polygons[0]);
+		this.#createPath(polygons);
 		this.#context.lineWidth = lineWidth * devicePixelRatio;
 		if (fillColor) {
 			this.#context.fillStyle = fillColor;
@@ -340,7 +347,7 @@ class geojsonCanvas {
 	#click_y = -1;
 	
 	#mouseInPolygon(polygons, x, y) {
-		this.#createPath(polygons[0]);
+		this.#createPath(polygons);
 		if (this.#context.isPointInPath(x, y)) {
 			return true;
 		}
